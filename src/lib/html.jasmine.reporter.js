@@ -139,8 +139,16 @@ jasmineRequire.HtmlReporter = function (j$) {
     this.specDone = function (result) {
       stateBuilder.specDone(result);
 
-      if (noExpectations(result) && typeof console !== 'undefined' && typeof console.error !== 'undefined') {
-        console.error('Spec \'' + result.fullName + '\' has no expectations.');
+      if (noExpectations(result) && typeof console !== 'undefined') {
+        var noSpecMsg = "Spec '" + result.fullName + "' has no expectations.";
+        if (
+          result.status === 'failed' &&
+          typeof console.error !== 'undefined'
+        ) {
+          console.error(noSpecMsg);
+        } else if (typeof console.warn !== 'undefined') {
+          console.warn("Spec '" + result.fullName + "' has no expectations.");
+        }
       }
 
       if (!symbols) {
@@ -161,8 +169,10 @@ jasmineRequire.HtmlReporter = function (j$) {
       addDeprecationWarnings(result);
     };
 
-    this.displaySpecInCorrectFormat = function (result) {
-      return noExpectations(result) ? 'jasmine-empty' : this.resultStatus(result.status);
+    this.displaySpecInCorrectFormat = function(result) {
+      return noExpectations(result) && result.status === 'passed'
+        ? 'jasmine-empty'
+        : this.resultStatus(result.status);
     };
 
     this.resultStatus = function (status) {
@@ -291,8 +301,30 @@ jasmineRequire.HtmlReporter = function (j$) {
 
       for (var i = 0; i < result.failedExpectations.length; i++) {
         var expectation = result.failedExpectations[i];
-        messages.appendChild(createDom('div', { className: 'jasmine-result-message' }, expectation.message));
-        messages.appendChild(createDom('div', { className: 'jasmine-stack-trace' }, expectation.stack));
+        messages.appendChild(
+          createDom(
+            'div',
+            { className: 'jasmine-result-message' },
+            expectation.message
+          )
+        );
+        messages.appendChild(
+          createDom(
+            'div',
+            { className: 'jasmine-stack-trace' },
+            expectation.stack
+          )
+        );
+      }
+
+      if (result.failedExpectations.length === 0) {
+        messages.appendChild(
+          createDom(
+            'div',
+            { className: 'jasmine-result-message' },
+            'Spec has no expectations'
+          )
+        );
       }
 
       return failure;
@@ -514,8 +546,13 @@ jasmineRequire.HtmlReporter = function (j$) {
     }
 
     function noExpectations(result) {
-      return (result.failedExpectations.length + result.passedExpectations.length) === 0 &&
-        result.status === 'passed';
+      var allExpectations =
+        result.failedExpectations.length + result.passedExpectations.length;
+
+      return (
+        allExpectations === 0 &&
+        (result.status === 'passed' || result.status === 'failed')
+      );
     }
 
     function hasActiveSpec(resultNode) {
